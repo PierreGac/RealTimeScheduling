@@ -18,6 +18,7 @@ struct RoomData
 {
 	bool DoorSensor;
 	int DoorState;
+	bool Emmergency;
 };
 class Room
 {
@@ -54,6 +55,10 @@ public:
 	void SetEmmergencyState(const bool &state);		//Set the emmergency state (0:off, 1:on) =>triggers the top priority
 	bool GetEmmergencyState(void) const;			//Get the emmergency state
 #pragma endregion
+#pragma region PRESENCE
+	void SetRoomPresence(const bool &state);		//Set the room presence (0:empty, 1:notEmpty)
+	bool GetRoomPresence(void) const;
+#pragma endregion
 	RoomData& GetRoomData() const;					//Get a structure of the room data
 private:
 	MainThread* _mainThread;
@@ -66,6 +71,7 @@ private:
 	bool _lightState;
 	double _temperature;
 	bool _heaterState;
+	bool _roomPresence;								//Indicates if the room is used or not
 	int HeaterState;
 	thread *t;
 	int threadState;

@@ -32,13 +32,16 @@ public:
 	void ProcessTasks(Room* r);
 	void StartMainThread(int type);
 	void PrintExecutionTime(const std::chrono::duration<double> &time_span);
-	void PriorityEvent(const Room* room);
+	void PriorityEvent(Room* room);
 private:
 	vector<Room*> Rooms;
 	thread *t;
 	int _roomSize;
 	bool _isExit;
 	bool _onPriorityEvent;
+	bool _nextPrintTime;
+	vector<Room*> _eventRooms;
+	vector<Room*> _fixedArray;
 
 	//Priorities
 	static const int __PRIORITY_LOW = 0;

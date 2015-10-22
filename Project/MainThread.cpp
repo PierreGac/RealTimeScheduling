@@ -3,11 +3,16 @@
 MainThread::MainThread()
 {
 	_isExit = false;
+	_nextPrintTime = false;
+	_onPriorityEvent = false;
 	_roomSize = 100;
 	Rooms = vector<Room*>(_roomSize);
+	_fixedArray = vector<Room*>(_roomSize);
+	_eventRooms = vector<Room*>();
 	for (int i = 0; i < _roomSize; i++)
 	{
 		Rooms[i] = new Room(i, this);
+		_fixedArray[i] = Rooms[i];
 	}
 }
 
@@ -28,14 +33,15 @@ int MainThread::GetRoomsCount() const
 string MainThread::PrintSystemStatus() const
 {
 	strstream sstr;
-
-	sstr << "\t";
+	sstr << "|-------------------------|" << endl;
+	sstr << "|PRIORITY|ID |    DOOR    |" << endl;
+	sstr << "|        |   |STATE|SENSOR|" << endl;
 	for (int i = 0; i < _roomSize; i++)
 	{
 		sstr << Rooms.at(i)->ToString();
-		sstr << "\r\n\t";
+		sstr << "\r\n";
 	}
-
+	sstr << "|-------------------------|" << endl;
 	sstr << '\0';
 	return sstr.str();
 }
@@ -56,7 +62,7 @@ int MainThread::StartRoomThread() const
 void MainThread::StartUI()
 {
 	//Start UI:
-	cout << "Ready..." << endl;
+	cout << "Ready" << endl;
 	string str;
 	bool state = false;
 	steady_clock::time_point t1, t2;
@@ -70,22 +76,26 @@ void MainThread::StartUI()
 		CheckCommands(str);
 		t2 = steady_clock::now();
 		time_span = duration_cast<duration<double>>(t2 - t1);
+		_sleep(10);
 		PrintExecutionTime(time_span);
 	} while (str != "exit");
 }
 
 void MainThread::PrintExecutionTime(const duration<double> &time_span)
 {
-	cout << "-- Command execution time: ";
+	if (time_span.count() == 0)
+		return;
+	cout << "|-- Command execution time: ";
 	cout << time_span.count();
-	cout << " --" << endl;
+	cout << " --|" << endl;
 }
 
-void MainThread::PriorityEvent(const Room* room)
+void MainThread::PriorityEvent(Room* room)
 {
+	/*cout << "Priority event: ";
+	cout << room->GetID() << endl;*/
+	_eventRooms.push_back(room);
 	_onPriorityEvent = true;
-	cout << "Priority event: ";
-	cout << room->GetID() << endl;
 }
 
 void MainThread::ScheduleDeadLine()
@@ -134,28 +144,65 @@ bool MainThread::Sort(const Room* r1, const Room *r2)
 
 void MainThread::SchedulePriority()
 {
+	steady_clock::time_point t1, t2;
+	duration<double> time_span;
+	bool temp = false;
 	do
 	{
-		steady_clock::time_point t1 = steady_clock::now();
+		t1 = steady_clock::now();
 		//1
 		sort(Rooms.begin(), Rooms.end(), Sort);
 
 		//2
 		for (int i = 0; i < _roomSize; i++)
 		{
+			//Check if we have a priority event
+			if (_onPriorityEvent)
+			{
+				//LOCK THE VECTOR
+				temp = true;
+				//Sort the priority vector:
+				sort(_eventRooms.begin(), _eventRooms.end(), Sort);
+				//Process the priority vector
+				vector< Room* >::iterator it = _eventRooms.begin();
+				while (it != _eventRooms.end())
+				{
+					ProcessTasks(*it);
+					it = _eventRooms.erase(it);
+				}
+				_onPriorityEvent = false; //Semaphore ?
+				//UNLOCK THE VECTOR
+			}
+			if (Rooms[i]->Priority == __PRIORITY_LOW)
+				break;
 			ProcessTasks(Rooms[i]);
 		}
 
-		steady_clock::time_point t2 = steady_clock::now();
-		duration<double> time_span = duration_cast<duration<double>>(t2 - t1);
-		//printf("%f -- %f :: Duration time: %f\r\n", t2, t1, time_span.count());
+		t2 = steady_clock::now();
+		time_span = duration_cast<duration<double>>(t2 - t1);
+		if ((temp || _nextPrintTime) && time_span.count() != 0)
+		{
+			printf("%f -- %f :: Duration time: %f\r\n", t2, t1, time_span.count());
+			temp = false;
+			_nextPrintTime = false;
+		}
 	} while (!_isExit);
 }
 
 void MainThread::ProcessTasks(Room *r)
 {
 	RoomData data = r->GetRoomData();
+#pragma region Emmergency
+	if (data.Emmergency)
+	{
+		cout << "The room ";
+		cout << r->GetID();
+		cout << "is in an emmergency state" << endl;
 
+		r->SetEmmergencyState(false);
+	}
+
+#pragma endregion
 #pragma region Door
 	//Request action on a door:
 	if (data.DoorSensor && data.DoorState == 1)
@@ -202,6 +249,11 @@ bool MainThread::CheckCommands(string &str)
 		_isExit = true;
 		return true;
 	}
+	if (subStr.at(0) == "time")
+	{
+		_nextPrintTime = true;
+		return true;
+	}
 	if (subStr[0] == "start")
 	{
 		StartRoomThread();
@@ -225,10 +277,15 @@ bool MainThread::CheckCommands(string &str)
 				return true;
 			}
 			//Get the room ID:
-
-			cout << "Printing system status: " << endl;
-			cout << Rooms[atoi(subStr.at(1).c_str())]->ToString() << endl;
-			return true;
+			for (int i = 0; i < _roomSize; i++)
+			{
+				if (Rooms[i]->GetID() == atoi(subStr.at(1).c_str()))
+				{
+					cout << Rooms[i]->ToString() << endl;
+					return true;
+				}
+			}
+			return false;
 		}
 		if (subStr.size() == 3)
 		{
@@ -257,6 +314,11 @@ bool MainThread::CheckCommands(string &str)
 	//Set commands
 	if (subStr.at(0) == "set")
 	{
+		if (subStr.size() == 1)
+		{
+			cout << "set command, missing arguments" << endl;
+			return false;
+		}
 		#pragma region DOOR
 		if (subStr.at(1) == "door")
 		{
@@ -267,23 +329,25 @@ bool MainThread::CheckCommands(string &str)
 				{
 					for (int i = 0; i < _roomSize; i++)
 					{
+						_nextPrintTime = true;
 						if (atoi(subStr.at(4).c_str()) == 0)
-							Rooms[i]->SetDoorSensorState(false);
+							_fixedArray[i]->SetDoorSensorState(false);
 						else
-							Rooms[i]->SetDoorSensorState(true);
-						return true;
+							_fixedArray[i]->SetDoorSensorState(true);
 					}
+					return true;
 				}
 				else
 				{
 					for (int i = 0; i < _roomSize; i++)
 					{
-						if (atoi(subStr.at(3).c_str()) == Rooms[i]->GetID())
+						if (atoi(subStr.at(3).c_str()) == _fixedArray[i]->GetID())
 						{
+							_nextPrintTime = true;
 							if (atoi(subStr.at(4).c_str()) == 0)
-								Rooms[i]->SetDoorSensorState(false);
+								_fixedArray[i]->SetDoorSensorState(false);
 							else
-								Rooms[i]->SetDoorSensorState(true);
+								_fixedArray[i]->SetDoorSensorState(true);
 							return true;
 						}
 					}
@@ -298,9 +362,9 @@ bool MainThread::CheckCommands(string &str)
 					for (int i = 0; i < _roomSize; i++)
 					{
 						if (atoi(subStr.at(4).c_str()) == 0)
-							Rooms[i]->SetDoorState(false);
+							_fixedArray[i]->SetDoorState(false);
 						else
-							Rooms[i]->SetDoorState(true);
+							_fixedArray[i]->SetDoorState(true);
 						return true;
 					}
 				}
@@ -308,12 +372,12 @@ bool MainThread::CheckCommands(string &str)
 				{
 					for (int i = 0; i < _roomSize; i++)
 					{
-						if (atoi(subStr.at(3).c_str()) == Rooms[i]->GetID())
+						if (atoi(subStr.at(3).c_str()) == _fixedArray[i]->GetID())
 						{
 							if (atoi(subStr.at(4).c_str()) == 0)
-								Rooms[i]->SetDoorState(false);
+								_fixedArray[i]->SetDoorState(false);
 							else
-								Rooms[i]->SetDoorState(true);
+								_fixedArray[i]->SetDoorState(true);
 							return true;
 						}
 					}
@@ -335,18 +399,53 @@ bool MainThread::CheckCommands(string &str)
 					state = false;
 				for (int i = 0; i < _roomSize; i++)
 				{
-					Rooms[i]->SetEmmergencyState(state);
+					_fixedArray[i]->SetEmmergencyState(state);
 				}
 				return true;
 			}
 			for (int i = 0; i < _roomSize; i++)
 			{
-				if (Rooms[i]->GetID() == atoi(subStr.at(2).c_str()))
+				if (_fixedArray[i]->GetID() == atoi(subStr.at(2).c_str()))
 				{
 					if (atoi(subStr.at(3).c_str()) == 1)
-						Rooms[i]->SetEmmergencyState(true);
+						_fixedArray[i]->SetEmmergencyState(true);
 					else
-						Rooms[i]->SetEmmergencyState(true);
+						_fixedArray[i]->SetEmmergencyState(true);
+					return true;
+				}
+			}
+		}
+		#pragma endregion
+
+		#pragma region PRESENCE
+		if (subStr.at(1) == "presence")
+		{
+			if (subStr.size() != 4)
+			{
+				cout << "set presence : Missing parameters" << endl;
+				return false;
+			}
+			if (subStr.at(2) == "all")
+			{
+				bool state;
+				if (atoi(subStr.at(3).c_str()) == 1)
+					state = true;
+				else
+					state = false;
+				for (int i = 0; i < _roomSize; i++)
+				{
+					_fixedArray[i]->SetRoomPresence(state);
+				}
+				return true;
+			}
+			for (int i = 0; i < _roomSize; i++)
+			{
+				if (_fixedArray[i]->GetID() == atoi(subStr.at(2).c_str()))
+				{
+					if (atoi(subStr.at(3).c_str()) == 1)
+						_fixedArray[i]->SetRoomPresence(true);
+					else
+						_fixedArray[i]->SetRoomPresence(true);
 					return true;
 				}
 			}

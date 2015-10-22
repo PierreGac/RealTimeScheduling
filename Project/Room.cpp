@@ -9,6 +9,8 @@ Room::Room(const int &id, MainThread* mainThread)
 
 	_doorSensor = false; //No door presence
 	_doorState = 1; //Door closed
+	_emmergencyState = false;
+	_roomPresence = true;
 	Priority = __PRIORITY_NORMAL; //Normal priority
 }
 
@@ -22,14 +24,23 @@ string Room::ToString() const
 	strstream sstr;
 
 
-	sstr << "[";
+	sstr << "|    ";
 	sstr << Priority;
-	sstr << "]  ";
+	sstr << "   |";
 	sstr << ID;
-	sstr << "-- Door state: ";
+	if (ID < 10)
+	sstr << "  |  ";
+	else
+	{
+		if (ID < 100)
+			sstr << " |  ";
+		else
+			sstr << "|  ";
+	}
 	sstr << _doorState;
-	sstr << "-- Door sensor: ";
+	sstr << "  |  ";
 	sstr << _doorSensor;
+	sstr << "   |";
 	sstr << '\0';
 
 	return sstr.str();
@@ -103,7 +114,7 @@ RoomData& Room::GetRoomData(void) const
 	RoomData data = RoomData();
 	data.DoorSensor = _doorSensor;
 	data.DoorState = _doorState;
-
+	data.Emmergency = _emmergencyState;
 	return data;
 }
 #pragma region DOOR
@@ -164,8 +175,11 @@ void Room::SetEmmergencyState(const bool &state)
 	}
 	else
 	{
-		if (Priority == __PRIORITY_TOP)
+		if (Priority == __PRIORITY_TOP && _roomPresence)
 			Priority = __PRIORITY_NORMAL;
+		else
+			if (!_roomPresence)
+				Priority = __PRIORITY_LOW;
 	}
 }
 
@@ -173,4 +187,25 @@ bool Room::GetEmmergencyState(void) const
 {
 	return _emmergencyState;
 }
+#pragma endregion
+
+
+#pragma region PRESENCE
+void Room::SetRoomPresence(const bool &state)
+{
+	_roomPresence = state;
+	if (_roomPresence && Priority == __PRIORITY_LOW)
+		Priority = __PRIORITY_NORMAL;
+	else
+	{
+		Priority = __PRIORITY_LOW;
+		cout << ToString() << endl;
+	}
+}
+
+bool Room::GetRoomPresence(void) const
+{
+	return _roomPresence;
+}
+
 #pragma endregion
