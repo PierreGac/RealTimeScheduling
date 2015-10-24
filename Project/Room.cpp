@@ -6,17 +6,20 @@ Room::Room(const int &id, MainThread* mainThread)
 	ID = id;
 	_temperature = 22;
 	_heaterState = false;
+	_data = new RoomData();
 
 	_doorSensor = false; //No door presence
-	_doorState = 1; //Door closed
+	_doorState = 0; //Door closed
 	_emmergencyState = false;
-	_roomPresence = true;
-	Priority = __PRIORITY_NORMAL; //Normal priority
+	_lightSensor = false;
+	_lightState = false;
+	_roomPresence = false;
+	Priority = MainThread::__PRIORITY_LOW; //Default is low
 }
 
 Room::~Room()
 {
-
+	free(_data);
 }
 
 string Room::ToString() const
@@ -25,22 +28,34 @@ string Room::ToString() const
 
 
 	sstr << "|    ";
-	sstr << Priority;
+	sstr << (int)Priority;
 	sstr << "   |";
 	sstr << ID;
 	if (ID < 10)
-	sstr << "  |  ";
+	sstr << "  | ";
 	else
 	{
 		if (ID < 100)
-			sstr << " |  ";
+			sstr << " | ";
 		else
-			sstr << "|  ";
+			sstr << "| ";
 	}
-	sstr << _doorState;
+	sstr << _emmergencyState;
+	sstr << " | ";
+	sstr << _roomPresence;
+	sstr << " |  ";
+	sstr << (int)_doorState;
 	sstr << "  |  ";
 	sstr << _doorSensor;
+	sstr << "   |  ";
+	sstr << _lightState;
+	sstr << "  |  ";
+	sstr << _lightSensor;
 	sstr << "   |";
+	sstr << _temperature;
+	sstr << "|  ";
+	sstr << _heaterState;
+	sstr << "  |";
 	sstr << '\0';
 
 	return sstr.str();
@@ -49,7 +64,7 @@ string Room::ToString() const
 void Room::RoomThread()
 {
 	threadState = __FLAG_THREAD_RUNNING;
-	int i = 0;
+	_doorActuatorThread = NULL;
 	duration<double> time_span;
 	steady_clock::time_point t1 = steady_clock::now();
 	steady_clock::time_point t2 = steady_clock::now();
@@ -64,16 +79,6 @@ void Room::RoomThread()
 	threadState = __FLAG_THREAD_STOPPED;
 }
 
-int Room::StartThread()
-{
-	t = new	thread(&Room::RoomThread, this);
-	return 0;
-}
-
-void Room::StopThread()
-{
-	threadState = __FLAG_THREAD_STOP;
-}
 
 int Room::GetID() const
 {
@@ -109,16 +114,20 @@ std::ostream & operator<<(std::ostream & flot, const Room & R)
 #pragma endregion Operator
 
 
-RoomData& Room::GetRoomData(void) const
+RoomData* &Room::GetRoomData(void)
 {
-	RoomData data = RoomData();
-	data.DoorSensor = _doorSensor;
-	data.DoorState = _doorState;
-	data.Emmergency = _emmergencyState;
-	return data;
+	_data->DoorSensor = _doorSensor;
+	_data->DoorState = _doorState;
+	_data->Emmergency = _emmergencyState;
+	_data->RoomPresence = _roomPresence;
+	_data->LightSensor = _lightSensor;
+	_data->LightState = _lightState;
+	_data->Temperature = _temperature;
+	_data->HeaterState = _heaterState;
+	return _data;
 }
 #pragma region DOOR
-int Room::GetDoorState(void) const
+unsigned char Room::GetDoorState(void) const
 {
 	return _doorState;
 }
@@ -129,36 +138,31 @@ void Room::SetDoorState(const bool& state)
 {
 	_doorState = 2; //On progress
 	//Sending closing order : Wait
-	_sleep(50);
+	//_sleep(50);
 	//Priority = __PRIORITY_NORMAL;
-	_doorActuatorThread = new thread(&Room::WaitClosingTime, this, state); //Simulate the opening command
+	WaitClosingTime(state);
+	
 }
 
 void Room::WaitClosingTime(bool state)
 {
-	//cout << "toto" << endl;
-	_sleep(10000);
 	if (state)
-		_doorState = 0; //Open
+		_doorState = 1; //Open
 	else
-		_doorState = 1; //Closed
-	Priority = __PRIORITY_NORMAL;
+		_doorState = 0; //Closed
+	Priority = MainThread::__PRIORITY_NORMAL;
 }
 
 bool Room::GetDoorSensor() const
 {
-	_sleep(10);
+	//_sleep(10);
 	return _doorSensor;
 }
 
 void Room::SetDoorSensorState(const bool &state)
 {
-	_sleep(10);
-	if (state)
-	{
-		if (Priority < __PRIORITY_HIGH)
-			Priority = __PRIORITY_HIGH;
-	}
+	if (Priority < MainThread::__PRIORITY_HIGH)
+		Priority = MainThread::__PRIORITY_HIGH;
 	_doorSensor = state;
 }
 
@@ -170,16 +174,16 @@ void Room::SetEmmergencyState(const bool &state)
 	_emmergencyState = state;
 	if (state)
 	{
-		Priority = __PRIORITY_TOP;
+		Priority = MainThread::__PRIORITY_TOP;
 		_mainThread->PriorityEvent(this);
 	}
 	else
 	{
-		if (Priority == __PRIORITY_TOP && _roomPresence)
-			Priority = __PRIORITY_NORMAL;
+		if (Priority == MainThread::__PRIORITY_TOP && _roomPresence)
+			Priority = MainThread::__PRIORITY_NORMAL;
 		else
 			if (!_roomPresence)
-				Priority = __PRIORITY_LOW;
+				Priority = MainThread::__PRIORITY_LOW;
 	}
 }
 
@@ -194,18 +198,89 @@ bool Room::GetEmmergencyState(void) const
 void Room::SetRoomPresence(const bool &state)
 {
 	_roomPresence = state;
-	if (_roomPresence && Priority == __PRIORITY_LOW)
-		Priority = __PRIORITY_NORMAL;
+	if (_roomPresence)
+	{
+		if (Priority == MainThread::__PRIORITY_LOW)
+			Priority = MainThread::__PRIORITY_NORMAL;
+	}
 	else
 	{
-		Priority = __PRIORITY_LOW;
-		cout << ToString() << endl;
+		Priority = MainThread::__PRIORITY_LOW;
 	}
 }
 
 bool Room::GetRoomPresence(void) const
 {
 	return _roomPresence;
+}
+
+#pragma endregion
+
+#pragma region LIGHT
+bool Room::GetLightState(void) const
+{
+	return _lightState;
+}
+
+// true = Request Open
+// false = Request Close
+void Room::SetLightState(const bool& state)
+{
+	_lightState = state;
+}
+
+bool Room::GetLightSensor() const
+{
+	//_sleep(10);
+	return _lightSensor;
+}
+
+void Room::SetLightSensorState(const bool &state)
+{
+	//_sleep(10);
+	if (state)
+	{
+		if (Priority < MainThread::__PRIORITY_HIGH)
+			Priority = MainThread::__PRIORITY_HIGH;
+	}
+	_lightSensor = state;
+}
+
+#pragma endregion
+
+#pragma region HEATER
+void Room::UpdateTemperature(void)
+{
+	//If heating
+	if (_heaterState)
+	{
+		if (_temperature < 25.0)
+			_temperature += 0.0000001;
+	}
+	else
+	{
+		if (_temperature > 15.0)
+			_temperature -= 0.0000001;
+
+	}
+}
+
+bool Room::GetHeaterState(void) const
+{
+	return _heaterState;
+}
+
+// true = Request Open
+// false = Request Close
+void Room::SetHeaterState(const bool& state)
+{
+	_heaterState = state;
+}
+
+double Room::GetTemperature() const
+{
+	//_sleep(10);
+	return _temperature;
 }
 
 #pragma endregion
