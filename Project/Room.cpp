@@ -1,6 +1,6 @@
 #include "Room.h"
 
-Room::Room(const int &id, MainThread* mainThread)
+Room::Room(const int &id, Schedule* mainThread)
 {
 	_mainThread = mainThread;
 	ID = id;
@@ -61,7 +61,23 @@ string Room::ToString() const
 	return sstr.str();
 }
 
-void Room::RoomThread()
+void Room::GetDeadlineValue(void)
+{
+	if (_doorSensor != _doorState)
+		Deadline++;
+	if (_emmergencyState)
+		Deadline++;
+	if (_lightSensor != _lightState)
+		Deadline++;
+	if (_roomPresence)
+		Deadline++;
+	if (_heaterState && _temperature > 23)
+		Deadline++;
+	if (!_heaterState && _temperature < 18)
+		Deadline++;
+}
+
+void Room::RoomThread(void)
 {
 	threadState = __FLAG_THREAD_RUNNING;
 	_doorActuatorThread = NULL;

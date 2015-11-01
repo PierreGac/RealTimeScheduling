@@ -11,15 +11,23 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ConfigFile.cpp" />
     <ClCompile Include="MainThread.cpp" />
+    <ClCompile Include="PrioritySchedule.cpp" />
     <ClCompile Include="Room.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="Schedule.cpp" />
     <ClCompile Include="Tools.cpp" />
+    <ClCompile Include="UI.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ConfigFile.h" />
     <ClInclude Include="MainThread.h" />
+    <ClInclude Include="PrioritySchedule.h" />
     <ClInclude Include="Room.h" />
+    <ClInclude Include="Schedule.h" />
     <ClInclude Include="Tools.h" />
+    <ClInclude Include="UI.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{22A5E86B-0B72-4CE9-B23C-D128FC39FDA7}</ProjectGuid>

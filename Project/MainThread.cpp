@@ -15,7 +15,7 @@ MainThread::MainThread(const int & number)
 	_eventRooms = vector<Room*>();
 	for (int i = 0; i < _roomSize; i++)
 	{
-		Rooms[i] = new Room(i, this);
+		/*Rooms[i] = new Room(i, this);*/
 		_fixedArray[i] = Rooms[i];
 	}
 }
@@ -113,32 +113,86 @@ void MainThread::PriorityEvent(Room* room)
 	_onPriorityEvent = true;
 }
 
-void MainThread::ScheduleDeadLine()
-{
-	//1
-
-	//2
-
-
-	//3
-}
 
 bool MainThread::Sort(const Room* r1, const Room *r2)
 {
 	return r1->Priority > r2->Priority;
 }
-
-
-void MainThread::SchedulePriority()
+bool MainThread::SortDeadline(const Room* r1, const Room *r2)
 {
-	steady_clock::time_point t1, t2;
-	duration<double> time_span;
+	return r1->Deadline > r2->Deadline;
+}
+void MainThread::ScheduleDeadLine()
+{
 	bool temp = false;
 	do
 	{
 		if (!_onMacro)
 		{
-			t1 = steady_clock::now();
+			_t1 = high_resolution_clock::now();
+			//Sort the array
+			for (int i = 0; i < _roomSize; i++)
+			{
+				Rooms[i]->GetDeadlineValue();
+			}
+
+			sort(Rooms.begin(), Rooms.end(), SortDeadline);
+
+			for (int i = 0; i < _roomSize; i++)
+			{
+				ProcessTasks(Rooms[i]);
+			}
+
+			_t2 = high_resolution_clock::now();
+			_time_span1 = duration_cast<duration<double>>(_t2 - _t1);
+			/*if ((temp || _nextPrintTime) && time_span.count() != 0)
+			{
+			printf("%f -- %f :: Duration time: %f\r\n", t2, t1, time_span.count());
+			temp = false;
+			_nextPrintTime = false;
+			}*/
+			printf(":: Duration time: %f\r\n", _time_span1.count());
+			//_sleep(1000);
+		}
+	} while (!_isExit);
+}
+
+void MainThread::ScheduleBasic()
+{
+	bool temp = false;
+	do
+	{
+		if (!_onMacro)
+		{
+			_t1 = high_resolution_clock::now();
+			for (int i = 0; i < _roomSize; i++)
+			{
+				ProcessTasks(Rooms[i]);
+			}
+
+			_t2 = high_resolution_clock::now();
+			_time_span1 = duration_cast<duration<double>>(_t2 - _t1);
+			/*if ((temp || _nextPrintTime) && time_span.count() != 0)
+			{
+				printf("%f -- %f :: Duration time: %f\r\n", t2, t1, time_span.count());
+				temp = false;
+				_nextPrintTime = false;
+			}*/
+			printf(":: Duration time: %f\r\n", _time_span1.count());
+			//_sleep(1000);
+		}
+	} while (!_isExit);
+}
+
+
+void MainThread::SchedulePriority()
+{
+	bool temp = false;
+	do
+	{
+		if (!_onMacro)
+		{
+			_t1 = high_resolution_clock::now();
 			//1
 			sort(Rooms.begin(), Rooms.end(), Sort);
 
@@ -156,13 +210,13 @@ void MainThread::SchedulePriority()
 					vector< Room* >::iterator it = _eventRooms.begin();
 					while (it != _eventRooms.end())
 					{
-						ProcessTasks(*it);
 						if ((*it)->GetEmmergencyState())
 						{
 							cout << endl << "The room [";
 							cout << (*it)->GetID();
 							cout << "] is in an emmergency state!" << endl;
 						}
+						ProcessTasks(*it);
 						it = _eventRooms.erase(it);
 					}
 					_onPriorityEvent = false; //Semaphore ?
@@ -173,14 +227,17 @@ void MainThread::SchedulePriority()
 				ProcessTasks(Rooms[i]);
 			}
 
-			t2 = steady_clock::now();
-			time_span = duration_cast<duration<double>>(t2 - t1);
-			if ((temp || _nextPrintTime) && time_span.count() != 0)
+			_t2 = high_resolution_clock::now();
+			_time_span1 = duration_cast<duration<double>>(_t2 - _t1);
+			if (_time_span1.count() != 0)
+				printf(":: Duration time: %f ::\r\n", _time_span1.count());
+			/*if ((temp || _nextPrintTime) && _time_span1.count() != 0)
 			{
-				printf("%f -- %f :: Duration time: %f\r\n", t2, t1, time_span.count());
+				printf("%f -- %f :: Duration time: %f\r\n", _t2, _t1, _time_span1.count());
 				temp = false;
 				_nextPrintTime = false;
-			}
+			}*/
+			///_sleep(50);
 		}
 	} while (!_isExit);
 }
@@ -189,14 +246,16 @@ void MainThread::ProcessTasks(Room *r)
 {
 	RoomData* data = r->GetRoomData();
 #pragma region Emmergency
-	/*if (data->Emmergency)
+	if (data->Emmergency)
 	{
-		cout << "The room ";
+		/*cout << "The room ";
 		cout << r->GetID();
-		cout << "is in an emmergency state" << endl;
-
+		cout << " is in an emmergency state \tTime: ";*/
+		/*_t2 = high_resolution_clock::now();
+		_time_span1 = duration_cast<duration<double>>(_t2 - _t1);
+		cout << _time_span1.count() << endl;*/
 		r->SetEmmergencyState(false);
-	}*/
+	}
 
 #pragma endregion
 #pragma region Door
@@ -246,10 +305,21 @@ void MainThread::ProcessTasks(Room *r)
 
 void MainThread::StartMainThread(int type)
 {
-	if (type == 1)
+	switch (type)
+	{
+	case 1:
 		t = new thread(&MainThread::SchedulePriority, this);
-	else
+		break;
+	case 2:
+		t = new thread(&MainThread::ScheduleBasic, this);
+		break;
+	case 3:
 		t = new thread(&MainThread::ScheduleDeadLine, this);
+		break;
+	default:
+		t = new thread(&MainThread::SchedulePriority, this);
+		break;
+	}
 }
 
 

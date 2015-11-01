@@ -1,0 +1,9 @@
+!-Creating a priority schedule with 500 rooms
+#schedule priority 50
+!-Print all the data
+#print
+#print room 5
+#print This is a string
+#print priority 1
+#wait
+#wait 220

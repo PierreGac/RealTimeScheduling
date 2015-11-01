@@ -10,10 +10,11 @@
 #include <ratio>
 #include <chrono>
 #include "MainThread.h"
+#include "Schedule.h"
 using namespace std;
 using namespace std::chrono;
 
-class MainThread;
+class Schedule;
 
 struct RoomData
 {
@@ -29,11 +30,13 @@ struct RoomData
 class Room
 {
 public:
-	Room(const int & ID, MainThread* mainThread);
+	Room(const int & ID, Schedule* mainThread);
 	~Room();
 	void Init();
 	string ToString() const;
 	unsigned char Priority;
+	unsigned char Deadline;
+	void GetDeadlineValue(void);
 	int GetID() const;
 #pragma region Operator
 	Room & operator=(const Room & p);
@@ -86,10 +89,9 @@ public:
 
 #pragma endregion
 private:
-	MainThread* _mainThread;
+	Schedule* _mainThread;
 	void RoomThread();
 	int ID;
-
 	unsigned char _doorState;									// 0:open, 1:closed, 2:action in progress
 	bool _doorSensor;								// 0:empty, 1:someone
 	bool _emmergencyState;							// 0:none, 1:emmergency

@@ -30,8 +30,10 @@ public:
 	void StartUI();
 	bool CheckCommands(string &str);
 	void SchedulePriority();
+	void ScheduleBasic();
 	void ScheduleDeadLine();
 	static bool Sort(const Room* r1, const Room* r2);
+	static bool SortDeadline(const Room* r1, const Room* r2);
 	void ProcessTasks(Room* r);
 	void StartMainThread(int type);
 	void PrintExecutionTime(const std::chrono::duration<double> &time_span);
@@ -52,6 +54,9 @@ private:
 	bool _onMacro;
 	bool _nextPrintTime;
 	vector<Room*> _eventRooms;
+	std::chrono::high_resolution_clock::time_point _t1;
+	std::chrono::high_resolution_clock::time_point _t2;
+	std::chrono::duration<double> _time_span1;
 	vector<Room*> _fixedArray;
 };
 #endif
