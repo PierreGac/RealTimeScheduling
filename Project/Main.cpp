@@ -5,30 +5,20 @@
 #include "ConfigFile.h"
 using namespace std;
 
-int main()
+int main(int argc, char *argv[])
 {
-	std::ios::sync_with_stdio(false);
-	srand(time(NULL)); // initialisation de rand
+	if (argc > 1)
+	{
+		std::ios::sync_with_stdio(false);
+		srand(time(NULL));
 
-	ConfigFile conf;
-	
-	conf.OpenFile("toto.rif");
-	conf.Start();
-	
+		ConfigFile conf;
 
+		conf.OpenFile(argv[1]);
+		conf.Start();
 
-	/*cout << "Number of rooms: " << flush;
-	string str;
-	getline(cin, str);
-	int number = atoi(str.c_str());
-
-	cout << "Start..." << endl;
-	MainThread *mainThread = new MainThread(number);
-	
-	mainThread->StartUI();
-
-	free(mainThread);*/
-
-	cout << endl << endl << "-- END --" << endl;
-	getchar();
+		_sleep(1000);
+		cout << endl << endl << "-- END --" << endl;
+		//getchar();
+	}
 }
