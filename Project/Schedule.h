@@ -2,6 +2,8 @@
 #define INCLUDE_SCHEDULE
 #include "Room.h"
 #include <vector>
+#include <sstream>
+#include <algorithm>
 #include <cstdint>
 using namespace std;
 
@@ -25,7 +27,7 @@ public:
 
 	int RoomSize;
 	int LoopWait;
-	int ExecTime;
+	double ExecTime;
 	uint64_t LoopsCounter;
 
 	thread* scheduleThread;
@@ -36,6 +38,8 @@ public:
 	bool _onPriorityEvent;
 	bool _printTime;
 	bool _isLoopWait;
+	bool _isRandom;
+	bool _autoPrint;
 
 	std::chrono::high_resolution_clock::time_point _t1;
 	std::chrono::high_resolution_clock::time_point _t2;

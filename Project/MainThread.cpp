@@ -222,7 +222,7 @@ void MainThread::SchedulePriority()
 					_onPriorityEvent = false; //Semaphore ?
 					//UNLOCK THE VECTOR
 				}
-				if (Rooms[i]->Priority == __PRIORITY_LOW)
+				if (Rooms[i]->Priority == Schedule::__PRIORITY_LOW)
 					break;
 				ProcessTasks(Rooms[i]);
 			}

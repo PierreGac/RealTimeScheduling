@@ -2,14 +2,13 @@
 #define INCLUDE_ROOM
 #include <string>
 #include <stdio.h>
-#include<strstream>
+#include <sstream>
 #include <stdlib.h>
 #include <thread>
 #include <iostream>
 #include <ctime>
 #include <ratio>
 #include <chrono>
-#include "MainThread.h"
 #include "Schedule.h"
 using namespace std;
 using namespace std::chrono;
@@ -30,7 +29,7 @@ struct RoomData
 class Room
 {
 public:
-	Room(const int & ID, Schedule* mainThread);
+	Room(const int & ID, Schedule* schedule);
 	~Room();
 	void Init();
 	string ToString() const;
@@ -88,10 +87,14 @@ public:
 	static const unsigned char __DOOR_ACTION = 2;
 
 #pragma endregion
+	void RandomBehaviour(void);
+	high_resolution_clock::time_point _emmergencyTriggerTime;
 private:
-	Schedule* _mainThread;
+	Schedule* _schedule;
 	void RoomThread();
 	int ID;
+	int _rndTick;
+	static const unsigned int TICK_VAL = 1000;
 	unsigned char _doorState;									// 0:open, 1:closed, 2:action in progress
 	bool _doorSensor;								// 0:empty, 1:someone
 	bool _emmergencyState;							// 0:none, 1:emmergency
@@ -105,7 +108,6 @@ private:
 	RoomData* _data = NULL;
 
 	void WaitClosingTime(bool state);
-	thread* _doorActuatorThread = NULL;
 
 };
 

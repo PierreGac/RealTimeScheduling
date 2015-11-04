@@ -1,5 +1,6 @@
 #include "Schedule.h"
-class PrioritySchedule : public Schedule
+class PrioritySchedule : 
+	public Schedule
 {
 public:
 	PrioritySchedule();

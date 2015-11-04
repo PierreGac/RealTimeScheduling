@@ -1,8 +1,9 @@
 #include "Room.h"
 
-Room::Room(const int &id, Schedule* mainThread)
+Room::Room(const int &id, Schedule* schedule)
 {
-	_mainThread = mainThread;
+	_schedule = schedule;
+	_rndTick = rand() % 1000;
 	ID = id;
 	_temperature = 22;
 	_heaterState = false;
@@ -14,7 +15,7 @@ Room::Room(const int &id, Schedule* mainThread)
 	_lightSensor = false;
 	_lightState = false;
 	_roomPresence = false;
-	Priority = MainThread::__PRIORITY_LOW; //Default is low
+	Priority = Schedule::__PRIORITY_LOW; //Default is low
 }
 
 Room::~Room()
@@ -24,7 +25,7 @@ Room::~Room()
 
 string Room::ToString() const
 {
-	strstream sstr;
+	stringstream sstr;
 
 
 	sstr << "|    ";
@@ -63,7 +64,7 @@ string Room::ToString() const
 
 void Room::GetDeadlineValue(void)
 {
-	if (_doorSensor != _doorState)
+	if ((unsigned char)_doorSensor != _doorState)
 		Deadline++;
 	if (_emmergencyState)
 		Deadline++;
@@ -80,7 +81,6 @@ void Room::GetDeadlineValue(void)
 void Room::RoomThread(void)
 {
 	threadState = __FLAG_THREAD_RUNNING;
-	_doorActuatorThread = NULL;
 	duration<double> time_span;
 	steady_clock::time_point t1 = steady_clock::now();
 	steady_clock::time_point t2 = steady_clock::now();
@@ -166,7 +166,7 @@ void Room::WaitClosingTime(bool state)
 		_doorState = 1; //Open
 	else
 		_doorState = 0; //Closed
-	Priority = MainThread::__PRIORITY_NORMAL;
+	Priority = Schedule::__PRIORITY_NORMAL;
 }
 
 bool Room::GetDoorSensor() const
@@ -177,8 +177,8 @@ bool Room::GetDoorSensor() const
 
 void Room::SetDoorSensorState(const bool &state)
 {
-	if (Priority < MainThread::__PRIORITY_HIGH)
-		Priority = MainThread::__PRIORITY_HIGH;
+	if (Priority < Schedule::__PRIORITY_HIGH)
+		Priority = Schedule::__PRIORITY_HIGH;
 	_doorSensor = state;
 }
 
@@ -190,16 +190,17 @@ void Room::SetEmmergencyState(const bool &state)
 	_emmergencyState = state;
 	if (state)
 	{
-		Priority = MainThread::__PRIORITY_TOP;
-		_mainThread->PriorityEvent(this);
+		_emmergencyTriggerTime = high_resolution_clock::now();
+		Priority = Schedule::__PRIORITY_TOP;
+		_schedule->PriorityEvent(this);
 	}
 	else
 	{
-		if (Priority == MainThread::__PRIORITY_TOP && _roomPresence)
-			Priority = MainThread::__PRIORITY_NORMAL;
+		if (Priority == Schedule::__PRIORITY_TOP && _roomPresence)
+			Priority = Schedule::__PRIORITY_NORMAL;
 		else
 			if (!_roomPresence)
-				Priority = MainThread::__PRIORITY_LOW;
+				Priority = Schedule::__PRIORITY_LOW;
 	}
 }
 
@@ -216,12 +217,12 @@ void Room::SetRoomPresence(const bool &state)
 	_roomPresence = state;
 	if (_roomPresence)
 	{
-		if (Priority == MainThread::__PRIORITY_LOW)
-			Priority = MainThread::__PRIORITY_NORMAL;
+		if (Priority == Schedule::__PRIORITY_LOW)
+			Priority = Schedule::__PRIORITY_NORMAL;
 	}
 	else
 	{
-		Priority = MainThread::__PRIORITY_LOW;
+		Priority = Schedule::__PRIORITY_LOW;
 	}
 }
 
@@ -243,6 +244,8 @@ bool Room::GetLightState(void) const
 void Room::SetLightState(const bool& state)
 {
 	_lightState = state;
+	if (Priority == Schedule::__PRIORITY_HIGH)
+		Priority = Schedule::__PRIORITY_NORMAL; //Set the priority back to normal
 }
 
 bool Room::GetLightSensor() const
@@ -256,8 +259,8 @@ void Room::SetLightSensorState(const bool &state)
 	//_sleep(10);
 	if (state)
 	{
-		if (Priority < MainThread::__PRIORITY_HIGH)
-			Priority = MainThread::__PRIORITY_HIGH;
+		if (Priority < Schedule::__PRIORITY_HIGH)
+			Priority = Schedule::__PRIORITY_HIGH;
 	}
 	_lightSensor = state;
 }
@@ -300,3 +303,36 @@ double Room::GetTemperature() const
 }
 
 #pragma endregion
+
+
+
+void Room::RandomBehaviour(void)
+{
+	if (_rndTick > TICK_VAL)
+	{
+		int rnd = rand() % 100;
+		_rndTick = 0;
+		if (rnd > 50)
+			return;
+		//If the room is not empty:
+		if (_roomPresence)
+		{
+			if (rand() % 100 == 1)
+				SetEmmergencyState(true);
+			if (rand() % 100 == 1)
+				SetDoorSensorState(!_doorSensor);
+			if (rand() % 100 == 1)
+				SetLightSensorState(!_lightSensor);
+		}
+		else
+		{
+			//EMMERGENCY-DOOR
+			if (rand() % 100 == 1)
+				SetEmmergencyState(true);
+			if (rand() % 100 == 1)
+				SetDoorSensorState(!_doorSensor);
+		}
+		return;
+	}
+	_rndTick++;
+}

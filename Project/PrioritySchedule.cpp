@@ -1,7 +1,6 @@
 #include "PrioritySchedule.h"
 #include "UI.h"
 
-
 PrioritySchedule::PrioritySchedule()
 {
 	_printTime = false;
@@ -9,6 +8,8 @@ PrioritySchedule::PrioritySchedule()
 	_onPriorityEvent = false;
 	_isExit = false;
 	_isLoopWait = false;
+	_isRandom = false;
+	_autoPrint = true;
 	ExecTime = 0;
 }
 
@@ -35,10 +36,13 @@ void PrioritySchedule::StartTimedThread(void)
 void PrioritySchedule::ScheduleTimedLifeThread(void)
 {
 	high_resolution_clock::time_point start = high_resolution_clock::now();
-	auto milli = duration_cast<milliseconds>(start.time_since_epoch()).count();
+	high_resolution_clock::time_point t;
+	double milli;
+	ExecTime = ExecTime / 1000;
 	do
 	{
-		milli = duration_cast<milliseconds>(start.time_since_epoch()).count();
+		t = high_resolution_clock::now();
+		milli = duration_cast<duration<double>>(t - start).count();
 	} while (milli < ExecTime);
 	_isExit = true;
 	UI::Print("> Max execution time reached... abort");
@@ -58,11 +62,19 @@ void PrioritySchedule::Thread(void)
 	bool temp = false;
 	stringstream sstr;
 	vector< Room* >::iterator it;
+	high_resolution_clock::time_point t3;
 	LoopsCounter = 0;
 	do
 	{
 		if (!_onMacro)
 		{
+			if (_isRandom)
+			{
+				for (int i = 0; i < RoomSize; i++)
+				{
+					Rooms[i]->RandomBehaviour();
+				}
+			}
 			_t1 = high_resolution_clock::now();
 			//1
 			sort(Rooms.begin(), Rooms.end(), Sort);
@@ -74,19 +86,27 @@ void PrioritySchedule::Thread(void)
 				if (_onPriorityEvent)
 				{
 					//LOCK THE VECTOR
-					temp = true;
+					/*if (_autoPrint)
+						temp = true; <= SEG FAULT ?!*/
 					//Sort the priority vector:
 					sort(_eventRooms.begin(), _eventRooms.end(), Sort);
 					//Process the priority vector
 					it = _eventRooms.begin();
 					while (it != _eventRooms.end())
 					{
-						if ((*it)->GetEmmergencyState())
+						if ((*it)->GetEmmergencyState() && _autoPrint)
 						{
 							sstr.str(string());
 							sstr << endl << "> The room [";
 							sstr << (*it)->GetID();
-							sstr << "] is in an emmergency state!" << endl;
+							sstr << "] is in an emmergency state :: Elapsed time: ";
+							t3 = high_resolution_clock::now();
+							
+							//std::chrono::duration<double> sp = duration_cast<duration<double>>(t3 - (*it)->_emmergencyTriggerTime);
+							double tt = (t3 - (*it)->_emmergencyTriggerTime).count();
+							sstr << tt << endl;
+							//sstr << sp.count() << endl;
+							//sstr << (*it)->_emmergencyTriggerTime.time_since_epoch().count() << endl;
 							UI::Print(sstr.str());
 						}
 						ProcessTasks(*it);
@@ -95,6 +115,7 @@ void PrioritySchedule::Thread(void)
 					_onPriorityEvent = false; //Semaphore ?
 					//UNLOCK THE VECTOR
 				}
+				Rooms[i]->UpdateTemperature(); //Always update the temperature
 				if (Rooms[i]->Priority == __PRIORITY_LOW)
 					break;
 				ProcessTasks(Rooms[i]);
@@ -129,7 +150,7 @@ void PrioritySchedule::Init(unsigned int size)
 	Rooms = vector<Room*>(size);
 	_fixedArray = vector<Room*>(size);
 	//_eventRooms = vector<Room*>();
-	for (int i = 0; i < size; i++)
+	for (unsigned int i = 0; i < size; i++)
 	{
 		Rooms[i] = new Room(i, this);
 		_fixedArray[i] = Rooms[i];
@@ -174,7 +195,9 @@ void PrioritySchedule::ProcessTasks(Room* room)
 	else
 	{
 		if (_roomData->DoorState == 1 && !_roomData->DoorSensor)
+		{
 			room->SetDoorState(false);
+		}
 	}
 #pragma endregion
 

@@ -3,7 +3,6 @@
 !-Print all the data
 #exectime 1000
 #start
-#set door sensor all 1
 #wait
-#set emmergency 5 1
+#print
 #exit

@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<DEFECTS><DEFECT><SFA><FILEPATH>d:\programmation\realtimescheduling\project\</FILEPATH><FILENAME>main.cpp</FILENAME><LINE>32</LINE><COLUMN>9</COLUMN></SFA><DEFECTCODE>6031</DEFECTCODE><DESCRIPTION>Valeur de retour ignorée : 'getchar'.</DESCRIPTION><FUNCTION>main</FUNCTION><DECORATED>main</DECORATED><FUNCLINE>9</FUNCLINE><PATH/></DEFECT></DEFECTS>

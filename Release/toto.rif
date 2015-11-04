@@ -1,9 +1,7 @@
 !-Creating a priority schedule with 500 rooms
-#schedule priority 50
-!-Print all the data
-#exectime 1000
+#schedule priority 100
+#random
 #start
-#set door sensor all 1
+#print all
 #wait
-#set emmergency 5 1
 #exit

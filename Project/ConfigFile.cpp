@@ -7,6 +7,7 @@
 
 ConfigFile::ConfigFile()
 {
+	_isSafeExit = false;
 	Commands = NULL;
 }
 
@@ -17,16 +18,19 @@ ConfigFile::~ConfigFile()
 }
 
 
-void ConfigFile::OpenFile(const char* path)
+void ConfigFile::OpenFile(const char* path, const int & size)
 {
+	_size = size;
 	if (Commands != NULL)
-		free(Commands);
-	Commands = new vector<string>();
+		free(Commands); //Free the last vector
+	Commands = new vector<string>(); //Create the new commands vector
+
 	ifstream file;
-	file.open(path);
+	file.open(path); //Open the file
 	if (file.is_open())
 	{
 		UI::Print("> Reading the file...");
+		//Get all the commands, and store them in the vector
 		for (string line; getline(file, line);)
 		{
 			//Process each line:
@@ -42,17 +46,41 @@ void ConfigFile::OpenFile(const char* path)
 	file.close();
 }
 
+//Process each commands
 void ConfigFile::Start(void)
 {
 	UI::Print("> Starting process...");
-	for (int i = 0; i < Commands->size(); i++)
+	for (unsigned int i = 0; i < Commands->size(); i++)
 	{
+		//UI::Print(Commands->at(i));
 		CommandLineInterpreter(Commands->at(i));
 	}
+	_isSafeExit = true;
 }
 
+long int ConfigFile::GetLoops(void)
+{
+	return CurrentSchedule->LoopsCounter;
+}
+
+bool ConfigFile::SafeExit(void)
+{
+	if (!_isSafeExit)
+	{
+		if (_exitWait != 0)
+			//_sleep(_exitWait);
+			delay(_exitWait);
+	}
+	if (CurrentSchedule->_isExit)
+		return true;
+	else
+		return false;
+}
+
+//Run a task according to the line
 unsigned int ConfigFile::CommandLineInterpreter(const string &line)
 {
+	stringstream sstr;
 	if (line.length() == 0)
 		return 0;
 	int tempINT = 0;
@@ -68,29 +96,71 @@ unsigned int ConfigFile::CommandLineInterpreter(const string &line)
 		if (subStr[1] == "priority")
 		{
 			CurrentSchedule = new PrioritySchedule();
-			if (subStr.size() == 2)
-				CurrentSchedule->Init(5000);
-			else
-			{
-				//Get the size
-				CurrentSchedule->Init(atoi(subStr[2].c_str()));
-			}
+			CurrentSchedule->Init(/*5000*/_size);
 			return 1;
 		}
+		if (subStr[1] == "deadline")
+		{
+			CurrentSchedule = new DeadlineSchedule();
+			CurrentSchedule->Init(/*5000*/_size);
+			return 1;
+		}
+		if (subStr[1] == "queue")
+		{
+			CurrentSchedule = new QueueSchedule();
+			CurrentSchedule->Init(/*5000*/_size);
+			return 1;
+		}
+	}
+	if (subStr[0] == "random")
+	{
+		if (subStr.size() == 2)
+			srand(atoi(subStr[1].c_str())); //Set the seed
+		else
+			srand(time(NULL));
+		CurrentSchedule->_isRandom = true;
+	}
+	if (subStr[0] == "reset-loops")
+	{
+		CurrentSchedule->LoopsCounter = 0;
+		UI::Print("> Reset loop counter");
 	}
 #pragma endregion
 
 #pragma region PRINT
+	if (subStr[0] == "no-auto-print")
+	{
+		CurrentSchedule->_autoPrint = false;
+	}
+	if (subStr[0] == "auto-print")
+	{
+		CurrentSchedule->_autoPrint = true;
+	}
 	if (subStr[0] == "print")
 	{
 		if (subStr.size() == 2)
 		{
+			if (subStr[1] == "loops")
+			{
+				sstr << "> Number of loops: " << CurrentSchedule->LoopsCounter;
+				UI::Print(sstr.str());
+				return 1;
+			}
 			if (subStr[1] == "all")
 			{
 				UI::PrintSystemStatus(CurrentSchedule->Rooms, CurrentSchedule->RoomSize);
 				return 1;
 			}
-			return 1;
+			if (subStr[1] == "size")
+			{
+				sstr << "> Size of the system: " << _size << endl;
+				UI::Print(sstr.str());
+				return 1;
+			}
+			stringstream sstr;
+			sstr << "> " << subStr[1] << endl;
+			UI::Print(sstr.str());
+			return 0;
 		}
 		if (subStr.size() == 3)
 		{
@@ -139,7 +209,7 @@ unsigned int ConfigFile::CommandLineInterpreter(const string &line)
 		{
 			stringstream sstr;
 			sstr << "> ";
-			for (int i = 1; i < subStr.size(); i++)
+			for (unsigned int i = 1; i < subStr.size(); i++)
 			{
 				sstr << subStr[i];
 				sstr << " ";
@@ -170,6 +240,14 @@ unsigned int ConfigFile::CommandLineInterpreter(const string &line)
 	}
 #pragma endregion
 #pragma region Time
+	if (subStr[0] == "exit-wait")
+	{
+		if (subStr.size() == 2)
+		{
+			_exitWait = atoi(subStr[1].c_str());
+		}
+		return 0;
+	}
 	if (subStr[0] == "time")
 	{
 		CurrentSchedule->_printTime = true;
@@ -185,7 +263,7 @@ unsigned int ConfigFile::CommandLineInterpreter(const string &line)
 		CurrentSchedule->_onMacro = false;
 		return 1;
 	}
-	if (subStr[0] == "loopwait")
+	if (subStr[0] == "loop-wait")
 	{
 		if (subStr.size() == 2)
 		{
@@ -195,7 +273,7 @@ unsigned int ConfigFile::CommandLineInterpreter(const string &line)
 		}
 		return 0;
 	}
-	if (subStr[0] == "exectime")
+	if (subStr[0] == "exec-time")
 	{
 		if (subStr.size() == 2)
 		{
@@ -204,7 +282,7 @@ unsigned int ConfigFile::CommandLineInterpreter(const string &line)
 		}
 		return 0;
 	}
-	if (subStr[0] == "timethread")
+	if (subStr[0] == "time-thread")
 	{
 		CurrentSchedule->StartTimedThread();
 		return 1;
@@ -218,13 +296,13 @@ unsigned int ConfigFile::CommandLineInterpreter(const string &line)
 			sstr << subStr[1];
 			sstr << " ms" << '\0';
 			UI::Print(sstr.str());
-			_sleep(atoi(subStr[1].c_str()));
-			//delay(atoi(substr[1].c_str()));
+			//_sleep(atoi(subStr[1].c_str()));
+			delay(atoi(subStr[1].c_str()));
 			return 1;
 		}
 		UI::Print("> Waiting 500ms");
-		_sleep(500);
-		//delay(500);
+		//_sleep(500);
+		delay(500);
 		return 1;
 	}
 #pragma endregion
@@ -257,23 +335,54 @@ unsigned int ConfigFile::CommandLineInterpreter(const string &line)
 					}
 					return 1;
 				}
-				else
+				//Using Rooms instead of fixed array because of the desired index: [not based on ID but on the position in the array]
+				if (subStr[3] == "middle")
 				{
-					tempINT = atoi(subStr[3].c_str());
-					for (int i = 0; i < CurrentSchedule->RoomSize; i++)
-					{
-						if (tempINT == CurrentSchedule->_fixedArray[i]->GetID())
-						{
-							CurrentSchedule->_printTime = true;
-							if (atoi(subStr[4].c_str()) == 0)
-								CurrentSchedule->_fixedArray[i]->SetDoorSensorState(false);
-							else
-								CurrentSchedule->_fixedArray[i]->SetDoorSensorState(true);
-							return 1;
-						}
-					}
-					return 0;
+					CurrentSchedule->_printTime = true;
+					tempINT = atoi(subStr[4].c_str());
+					if (tempINT == 0)
+						CurrentSchedule->Rooms[(int)_size / 2]->SetDoorSensorState(false);
+					else
+						CurrentSchedule->Rooms[(int)_size / 2]->SetDoorSensorState(true);
+					return 1;
 				}
+
+				if (subStr[3] == "end")
+				{
+					CurrentSchedule->_printTime = true;
+					tempINT = atoi(subStr[4].c_str());
+					if (tempINT == 0)
+						CurrentSchedule->Rooms.back()->SetDoorSensorState(false);
+					else
+						CurrentSchedule->Rooms.back()->SetDoorSensorState(true);
+					return 1;
+				}
+				if (subStr[3] == "begin")
+				{
+					CurrentSchedule->_printTime = true;
+					tempINT = atoi(subStr[4].c_str());
+					if (tempINT == 0)
+						CurrentSchedule->Rooms[0]->SetDoorSensorState(false);
+					else
+						CurrentSchedule->Rooms[0]->SetDoorSensorState(true);
+					return 1;
+				}
+
+				tempINT = atoi(subStr[3].c_str());
+				for (int i = 0; i < CurrentSchedule->RoomSize; i++)
+				{
+					if (tempINT == CurrentSchedule->_fixedArray[i]->GetID())
+					{
+						CurrentSchedule->_printTime = true;
+						if (atoi(subStr[4].c_str()) == 0)
+							CurrentSchedule->_fixedArray[i]->SetDoorSensorState(false);
+						else
+							CurrentSchedule->_fixedArray[i]->SetDoorSensorState(true);
+						return 1;
+					}
+				}
+				return 0;
+
 			}
 #pragma endregion
 #pragma region STATE
@@ -292,23 +401,53 @@ unsigned int ConfigFile::CommandLineInterpreter(const string &line)
 					}
 					return 1;
 				}
-				else
+				//Using Rooms instead of fixed array because of the desired index: [not based on ID but on the position in the array]
+				if (subStr[3] == "middle")
 				{
-					tempINT = atoi(subStr[3].c_str());
-					for (int i = 0; i < CurrentSchedule->RoomSize; i++)
-					{
-						if (tempINT == CurrentSchedule->_fixedArray[i]->GetID())
-						{
-							if (atoi(subStr[4].c_str()) == 0)
-								CurrentSchedule->_fixedArray[i]->SetDoorState(false);
-							else
-								CurrentSchedule->_fixedArray[i]->SetDoorState(true);
-							return 1;
-						}
-					}
-					return 0;
+					CurrentSchedule->_printTime = true;
+					tempINT = atoi(subStr[4].c_str());
+					if (tempINT == 0)
+						CurrentSchedule->Rooms[(int)_size / 2]->SetDoorState(false);
+					else
+						CurrentSchedule->Rooms[(int)_size / 2]->SetDoorState(true);
+					return 1;
 				}
+
+				if (subStr[3] == "end")
+				{
+					CurrentSchedule->_printTime = true;
+					tempINT = atoi(subStr[4].c_str());
+					if (tempINT == 0)
+						CurrentSchedule->Rooms[_size - 1]->SetDoorState(false);
+					else
+						CurrentSchedule->Rooms[_size - 1]->SetDoorState(true);
+					return 1;
+				}
+				if (subStr[3] == "begin")
+				{
+					CurrentSchedule->_printTime = true;
+					tempINT = atoi(subStr[4].c_str());
+					if (tempINT == 0)
+						CurrentSchedule->Rooms[0]->SetDoorState(false);
+					else
+						CurrentSchedule->Rooms[0]->SetDoorState(true);
+					return 1;
+				}
+				tempINT = atoi(subStr[3].c_str());
+				for (int i = 0; i < CurrentSchedule->RoomSize; i++)
+				{
+					if (tempINT == CurrentSchedule->_fixedArray[i]->GetID())
+					{
+						if (atoi(subStr[4].c_str()) == 0)
+							CurrentSchedule->_fixedArray[i]->SetDoorState(false);
+						else
+							CurrentSchedule->_fixedArray[i]->SetDoorState(true);
+						return 1;
+					}
+				}
+				return 0;
 			}
+
 #pragma endregion
 		}
 #pragma endregion
@@ -327,8 +466,44 @@ unsigned int ConfigFile::CommandLineInterpreter(const string &line)
 				{
 					CurrentSchedule->_fixedArray[i]->SetEmmergencyState(state);
 				}
-				return true;
+				return 1;
 			}
+
+			//Using Rooms instead of fixed array because of the desired index: [not based on ID but on the position in the array]
+			if (subStr[2] == "middle")
+			{
+				CurrentSchedule->_printTime = true;
+				tempINT = atoi(subStr[3].c_str());
+				if (tempINT == 0)
+					CurrentSchedule->Rooms[(int)_size / 2]->SetEmmergencyState(false);
+				else
+					CurrentSchedule->Rooms[(int)_size / 2]->SetEmmergencyState(true);
+				return 1;
+			}
+
+			if (subStr[2] == "end")
+			{
+				CurrentSchedule->_printTime = true;
+				tempINT = atoi(subStr[3].c_str());
+				if (tempINT == 0)
+					CurrentSchedule->Rooms[_size - 1]->SetEmmergencyState(false);
+				else
+					CurrentSchedule->Rooms[_size - 1]->SetEmmergencyState(true);
+				return 1;
+			}
+			if (subStr[2] == "begin")
+			{
+				CurrentSchedule->_printTime = true;
+				tempINT = atoi(subStr[3].c_str());
+				if (tempINT == 0)
+					CurrentSchedule->Rooms[0]->SetEmmergencyState(false);
+				else
+					CurrentSchedule->Rooms[0]->SetEmmergencyState(true);
+				return 1;
+			}
+
+
+
 			tempINT = atoi(subStr[2].c_str());
 			for (int i = 0; i < CurrentSchedule->RoomSize; i++)
 			{
@@ -365,6 +540,41 @@ unsigned int ConfigFile::CommandLineInterpreter(const string &line)
 				}
 				return 1;
 			}
+
+			//Using Rooms instead of fixed array because of the desired index: [not based on ID but on the position in the array]
+			if (subStr[2] == "middle")
+			{
+				CurrentSchedule->_printTime = true;
+				tempINT = atoi(subStr[3].c_str());
+				if (tempINT == 0)
+					CurrentSchedule->Rooms[(int)_size / 2]->SetRoomPresence(false);
+				else
+					CurrentSchedule->Rooms[(int)_size / 2]->SetRoomPresence(true);
+				return 1;
+			}
+
+			if (subStr[2] == "end")
+			{
+				CurrentSchedule->_printTime = true;
+				tempINT = atoi(subStr[3].c_str());
+				if (tempINT == 0)
+					CurrentSchedule->Rooms[_size - 1]->SetRoomPresence(false);
+				else
+					CurrentSchedule->Rooms[_size - 1]->SetRoomPresence(true);
+				return 1;
+			}
+			if (subStr[2] == "begin")
+			{
+				CurrentSchedule->_printTime = true;
+				tempINT = atoi(subStr[3].c_str());
+				if (tempINT == 0)
+					CurrentSchedule->Rooms[0]->SetRoomPresence(false);
+				else
+					CurrentSchedule->Rooms[0]->SetRoomPresence(true);
+				return 1;
+			}
+
+
 			tempINT = atoi(subStr[2].c_str());
 			for (int i = 0; i < CurrentSchedule->RoomSize; i++)
 			{
@@ -399,24 +609,57 @@ unsigned int ConfigFile::CommandLineInterpreter(const string &line)
 					}
 					return 1;
 				}
-				else
+
+				//Using Rooms instead of fixed array because of the desired index: [not based on ID but on the position in the array]
+				if (subStr[3] == "middle")
 				{
-					tempINT = atoi(subStr[3].c_str());
-					for (int i = 0; i < CurrentSchedule->RoomSize; i++)
-					{
-						if (tempINT == CurrentSchedule->_fixedArray[i]->GetID())
-						{
-							CurrentSchedule->_printTime = true;
-							if (atoi(subStr[4].c_str()) == 0)
-								CurrentSchedule->_fixedArray[i]->SetLightSensorState(false);
-							else
-								CurrentSchedule->_fixedArray[i]->SetLightSensorState(true);
-							return 1;
-						}
-					}
-					return 0;
+					CurrentSchedule->_printTime = true;
+					tempINT = atoi(subStr[4].c_str());
+					if (tempINT == 0)
+						CurrentSchedule->Rooms[(int)_size / 2]->SetLightSensorState(false);
+					else
+						CurrentSchedule->Rooms[(int)_size / 2]->SetLightSensorState(true);
+					return 1;
 				}
+
+				if (subStr[3] == "end")
+				{
+					CurrentSchedule->_printTime = true;
+					tempINT = atoi(subStr[4].c_str());
+					if (tempINT == 0)
+						CurrentSchedule->Rooms[_size - 1]->SetLightSensorState(false);
+					else
+						CurrentSchedule->Rooms[_size - 1]->SetLightSensorState(true);
+					return 1;
+				}
+				if (subStr[3] == "begin")
+				{
+					CurrentSchedule->_printTime = true;
+					tempINT = atoi(subStr[4].c_str());
+					if (tempINT == 0)
+						CurrentSchedule->Rooms[0]->SetLightSensorState(false);
+					else
+						CurrentSchedule->Rooms[0]->SetLightSensorState(true);
+					return 1;
+				}
+
+
+				tempINT = atoi(subStr[3].c_str());
+				for (int i = 0; i < CurrentSchedule->RoomSize; i++)
+				{
+					if (tempINT == CurrentSchedule->_fixedArray[i]->GetID())
+					{
+						CurrentSchedule->_printTime = true;
+						if (atoi(subStr[4].c_str()) == 0)
+							CurrentSchedule->_fixedArray[i]->SetLightSensorState(false);
+						else
+							CurrentSchedule->_fixedArray[i]->SetLightSensorState(true);
+						return 1;
+					}
+				}
+				return 0;
 			}
+
 #pragma endregion
 #pragma region STATE
 			if (subStr[2] == "state")
@@ -430,25 +673,57 @@ unsigned int ConfigFile::CommandLineInterpreter(const string &line)
 							CurrentSchedule->_fixedArray[i]->SetLightState(false);
 						else
 							CurrentSchedule->_fixedArray[i]->SetLightState(true);
+					}
+					return 1;
+				}
+
+				//Using Rooms instead of fixed array because of the desired index: [not based on ID but on the position in the array]
+				if (subStr[3] == "middle")
+				{
+					CurrentSchedule->_printTime = true;
+					tempINT = atoi(subStr[4].c_str());
+					if (tempINT == 0)
+						CurrentSchedule->Rooms[(int)_size / 2]->SetLightState(false);
+					else
+						CurrentSchedule->Rooms[(int)_size / 2]->SetLightState(true);
+					return 1;
+				}
+
+				if (subStr[3] == "end")
+				{
+					CurrentSchedule->_printTime = true;
+					tempINT = atoi(subStr[4].c_str());
+					if (tempINT == 0)
+						CurrentSchedule->Rooms[_size - 1]->SetLightState(false);
+					else
+						CurrentSchedule->Rooms[_size - 1]->SetLightState(true);
+					return 1;
+				}
+				if (subStr[3] == "begin")
+				{
+					CurrentSchedule->_printTime = true;
+					tempINT = atoi(subStr[4].c_str());
+					if (tempINT == 0)
+						CurrentSchedule->Rooms[0]->SetLightState(false);
+					else
+						CurrentSchedule->Rooms[0]->SetLightState(true);
+					return 1;
+				}
+
+				tempINT = atoi(subStr[3].c_str());
+				for (int i = 0; i < CurrentSchedule->RoomSize; i++)
+				{
+					if (tempINT == CurrentSchedule->_fixedArray[i]->GetID())
+					{
+						if (atoi(subStr[4].c_str()) == 0)
+							CurrentSchedule->_fixedArray[i]->SetLightState(false);
+						else
+							CurrentSchedule->_fixedArray[i]->SetLightState(true);
 						return 1;
 					}
 				}
-				else
-				{
-					tempINT = atoi(subStr[3].c_str());
-					for (int i = 0; i < CurrentSchedule->RoomSize; i++)
-					{
-						if (tempINT == CurrentSchedule->_fixedArray[i]->GetID())
-						{
-							if (atoi(subStr[4].c_str()) == 0)
-								CurrentSchedule->_fixedArray[i]->SetLightState(false);
-							else
-								CurrentSchedule->_fixedArray[i]->SetLightState(true);
-							return 1;
-						}
-					}
-					return 0;
-				}
+				return 0;
+
 			}
 #pragma endregion
 		}

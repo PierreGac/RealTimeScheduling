@@ -39,12 +39,6 @@ public:
 	void PrintExecutionTime(const std::chrono::duration<double> &time_span);
 	void PriorityEvent(Room* room);
 
-	//Priorities
-	static const unsigned char __PRIORITY_LOW = 0;
-	static const unsigned char __PRIORITY_NORMAL = 1;
-	static const unsigned char __PRIORITY_HIGH = 2;
-	static const unsigned char __PRIORITY_TOP = 3;
-
 private:
 	vector<Room*> Rooms;
 	thread *t;

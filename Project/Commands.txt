@@ -1,13 +1,16 @@
+How to run the program: sudo ./PROGRAM	CONFIG_FILE		SIZE_OF_TASK_VECTOR
 Commands:
 
 [ ]=Optionnal parameters
-
 
 -PRINTING
 #print							//Print all the rooms
 #print room INTEGER				//Print a specific room
 #print priority INTEGER			//Print all the rooms with the parameter priority	
 #print STRING					//Print a message
+#print size						//Print the size of the tasks vector
+#no-auto-print					//Disable automatic printing while looping
+#autoprint						//Enable automatic printing while looping
 
 -SCHEDULING
 #schedule TYPE_STRING(priority, deadline, queue) [INTEGER]			//Set the schedule type and the number of rooms [default is 5000]
@@ -15,21 +18,24 @@ Commands:
 #freeze																//Freeze the schedule
 #unfreeze															//Unfreeze the schedule
 #exit																//Terminate the schedule and print results
+#random	[INTEGER]													//Allows the rooms to get a random behaviour
+#reset-loop															//Resets the loops counter
 
 -TIME
 #time				//Print the schedule loop time
 #wait				//Wait 500ms
 #wait INTEGER		//Wait a custom amount of time in ms
-#loopwait INTEGER	//Set a wait between every schedule loop in ms
-#exectime INTEGER	//Set the life time of the schedule in ms
-#timethread			//Start the time thread
+#loop-wait INTEGER	//Set a wait between every schedule loop in ms
+#exec-time INTEGER	//Set the life time of the schedule in ms
+#time-thread		//Start the time thread
+#exit-wait			//The time before exiting
 
 -SETTERS
-#set TYPE_STRING(door, light) TYPE_STRING(sensor, state) all BOOLEAN		//
-#set TYPE_STRING(door, light) TYPE_STRING(sensor, state) INTEGER BOOLEAN	//
-#set TYPE_STRING(heater, curtains) TYPE_STRING(state) all BOOLEAN			//
-#set TYPE_STRING(heater, curtains) TYPE_STRING(state) INTEGER BOOLEAN		//
-#set emmergency all BOOLEAN													//
-#set emmergency INTEGER BOOLEAN												//
-#set presence all BOOLEAN													//
-#set presence INTEGER BOOLEAN												//
+#set TYPE_STRING(door, light) TYPE_STRING(sensor, state) TYPE_STRING(all, begin, middle, end) BOOLEAN
+#set TYPE_STRING(door, light) TYPE_STRING(sensor, state) INTEGER BOOLEAN
+#set TYPE_STRING(heater) TYPE_STRING(state) TYPE_STRING(all, begin, middle, end) BOOLEAN
+#set TYPE_STRING(heater) TYPE_STRING(state) INTEGER BOOLEAN		
+#set emmergency all BOOLEAN													
+#set emmergency INTEGER BOOLEAN												
+#set presence all BOOLEAN													
+#set presence INTEGER BOOLEAN												
